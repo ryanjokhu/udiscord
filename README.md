@@ -6,7 +6,7 @@ A server owner creates a Discord application and bot token, installs `uDiscord.d
 
 ## Features
 
-- Two-way Discord ↔ Unturned global chat
+- Two-way Discord ↔ Unturned chat with independently routed global, local, and group outputs
 - Embedded Discord Gateway v10 client with heartbeat, reconnect, and session resume
 - Guild-scoped `/udiscord` slash commands registered automatically
 - Server status, online-player list, and staff announcements
@@ -16,6 +16,7 @@ A server owner creates a Discord application and bot token, installs `uDiscord.d
 - Append-only moderation case journal
 - Discord role-based viewer, moderator, and administrator tiers
 - Player autocomplete using durable Steam64 values
+- Independent enable/channel routing for chat modes, joins, leaves, server status, tests, command logs, and moderation logs
 - Input sanitization, mention suppression, bounded queues, and rate limits
 - Deterministic hook cleanup and bounded shutdown
 - Windows and Linux/Pterodactyl support target
@@ -49,7 +50,7 @@ See [Installation](docs/INSTALLATION.md). The essential flow is:
 4. Create a Discord application and bot.
 5. Enable **Message Content Intent**.
 6. Invite the bot with `bot` and `applications.commands` scopes.
-7. Configure the token, guild ID, channel IDs, role IDs, and mute command templates.
+7. Configure the token, guild ID, Discord-to-game input channel, per-output channel routes, role IDs, and mute command templates.
 8. Restart the Unturned server.
 
 ## Build
