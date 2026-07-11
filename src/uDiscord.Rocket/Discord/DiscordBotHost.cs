@@ -117,20 +117,30 @@ namespace UDiscord.Rocket.Discord
             }
         }
 
-        public bool TryQueueChatMessage(string content)
+        public bool TryQueueOutput(DiscordChannelOutputSettings output, string content, int maximumLength, string category)
         {
-            UDiscordConfiguration config = _configuration();
-            if (!_started || config?.ChatRelay?.GameToDiscordEnabled != true || config.Discord.ChatChannelId == 0 || _outbound == null) return false;
-            string safe = MessageSanitizer.FromGameToDiscord(content, config.ChatRelay.MaximumDiscordMessageLength);
+            if (!_started || output == null || !output.Enabled || output.ChannelId == 0 || _outbound == null) return false;
+            string safe = MessageSanitizer.FromGameToDiscord(content, Math.Max(1, Math.Min(2000, maximumLength)));
             if (safe.Length == 0) return false;
 
-            bool accepted = _outbound.TryEnqueue(new OutboundMessage { ChannelId = config.Discord.ChatChannelId, Content = safe });
+            bool accepted = _outbound.TryEnqueue(new OutboundMessage { ChannelId = output.ChannelId, Content = safe });
             if (!accepted && DateTime.UtcNow - _lastQueueWarningUtc > TimeSpan.FromSeconds(10))
             {
                 _lastQueueWarningUtc = DateTime.UtcNow;
-                PluginLog.Warn("Discord outbound queue is full; chat relay messages are being dropped.");
+                PluginLog.Warn("Discord outbound queue is full; " + (string.IsNullOrWhiteSpace(category) ? "output" : category) + " messages are being dropped.");
             }
             return accepted;
+        }
+
+        public bool TryQueueTestMessage()
+        {
+            UDiscordConfiguration config = _configuration();
+            ConfigurationValidator.Normalize(config);
+            DiscordFormattedOutputSettings output = config == null || config.Outputs == null ? null : config.Outputs.TestMessages;
+            if (output == null) return false;
+            string content = (output.Format ?? "uDiscord test: the embedded bot can send messages from the Unturned server.")
+                .Replace("{server}", config.ServerDisplayName ?? "Unturned Server");
+            return TryQueueOutput(output, content, config.ChatRelay.MaximumDiscordMessageLength, "test");
         }
 
         public void RequestPresenceUpdate()
@@ -184,7 +194,9 @@ namespace UDiscord.Rocket.Discord
         public Task SendModerationLogAsync(ModerationCase item, CancellationToken cancellationToken)
         {
             UDiscordConfiguration config = _configuration();
-            if (config?.Discord?.ModerationLogChannelId == 0 || _rest == null || item == null) return Task.CompletedTask;
+            ConfigurationValidator.Normalize(config);
+            DiscordChannelOutputSettings output = config == null || config.Outputs == null ? null : config.Outputs.ModerationLogs;
+            if (output == null || !output.Enabled || output.ChannelId == 0 || _rest == null || item == null) return Task.CompletedTask;
             int color = item.Succeeded ? 0x00D1FF : 0xB90E31;
             List<KeyValuePair<string, string>> fields = new List<KeyValuePair<string, string>>
             {
@@ -197,7 +209,7 @@ namespace UDiscord.Rocket.Discord
             };
             if (item.ExpiresUtc.HasValue) fields.Add(new KeyValuePair<string, string>("Expires", item.ExpiresUtc.Value.ToString("u") + " UTC"));
             return _rest.SendModerationEmbedAsync(
-                config.Discord.ModerationLogChannelId,
+                output.ChannelId,
                 "uDiscord case #" + item.CaseId,
                 item.Succeeded ? "Moderation action completed." : "Moderation action failed or was denied.",
                 color,
@@ -214,13 +226,17 @@ namespace UDiscord.Rocket.Discord
         {
             if (!_started) return;
             UDiscordConfiguration config = _configuration();
-            if (!SuppressOfflineNotice && config?.ChatRelay?.RelayServerOfflineMessage == true && _rest != null && config.Discord.ChatChannelId != 0)
+            ConfigurationValidator.Normalize(config);
+            DiscordFormattedOutputSettings offlineOutput = config == null || config.Outputs == null ? null : config.Outputs.ServerOffline;
+            if (!SuppressOfflineNotice && offlineOutput != null && offlineOutput.Enabled && offlineOutput.ChannelId != 0 && _rest != null)
             {
                 try
                 {
                     using (CancellationTokenSource noticeTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(2)))
                     {
-                        await _rest.SendChannelMessageAsync(config.Discord.ChatChannelId, (config.ServerDisplayName ?? "Unturned Server") + " is shutting down.", noticeTimeout.Token).ConfigureAwait(false);
+                        string content = (offlineOutput.Format ?? "{server} is shutting down.")
+                            .Replace("{server}", config.ServerDisplayName ?? "Unturned Server");
+                        await _rest.SendChannelMessageAsync(offlineOutput.ChannelId, content, noticeTimeout.Token).ConfigureAwait(false);
                     }
                 }
                 catch (Exception exception)
@@ -284,11 +300,15 @@ namespace UDiscord.Rocket.Discord
                 }
             }
 
-            if (!_serverOnlineNoticeSent && !SuppressOnlineNotice && config.ChatRelay.RelayServerOnlineMessage && config.Discord.ChatChannelId != 0)
+            ConfigurationValidator.Normalize(config);
+            DiscordFormattedOutputSettings onlineOutput = config.Outputs == null ? null : config.Outputs.ServerOnline;
+            if (!_serverOnlineNoticeSent && !SuppressOnlineNotice && onlineOutput != null && onlineOutput.Enabled && onlineOutput.ChannelId != 0)
             {
                 try
                 {
-                    await _rest.SendChannelMessageAsync(config.Discord.ChatChannelId, (config.ServerDisplayName ?? "Unturned Server") + " is online.", _lifetime.Token).ConfigureAwait(false);
+                    string content = (onlineOutput.Format ?? "{server} is online.")
+                        .Replace("{server}", config.ServerDisplayName ?? "Unturned Server");
+                    await _rest.SendChannelMessageAsync(onlineOutput.ChannelId, content, _lifetime.Token).ConfigureAwait(false);
                     _serverOnlineNoticeSent = true;
                 }
                 catch (Exception exception)
@@ -302,9 +322,10 @@ namespace UDiscord.Rocket.Discord
         private async Task HandleMessageCreateAsync(JObject data)
         {
             UDiscordConfiguration config = _configuration();
+            ConfigurationValidator.Normalize(config);
             ulong guildId = ParseSnowflake(data["guild_id"]);
             ulong channelId = ParseSnowflake(data["channel_id"]);
-            if (guildId != config.Discord.GuildId || channelId != config.Discord.ChatChannelId || !config.ChatRelay.DiscordToGameEnabled) return;
+            if (guildId != config.Discord.GuildId || channelId != config.Discord.DiscordToGameChannelId || !config.ChatRelay.DiscordToGameEnabled) return;
 
             JObject author = data["author"] as JObject;
             ulong authorId = ParseSnowflake(author?["id"]);
