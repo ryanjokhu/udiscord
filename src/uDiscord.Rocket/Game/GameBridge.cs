@@ -22,6 +22,10 @@ namespace UDiscord.Rocket.Game
         private readonly DiscordBotHost _discord;
         private readonly Dictionary<string, DateTime> _muteReminderTimes = new Dictionary<string, DateTime>(StringComparer.Ordinal);
         private bool _subscribed;
+        private bool _muteHookSubscribed;
+        private bool _formattingHookSubscribed;
+        private bool _configurationFailureLogged;
+        private bool _muteHookFailureLogged;
 
         public GameBridge(Func<UDiscordConfiguration> configuration, MuteStore mutes, DiscordBotHost discord)
         {
@@ -33,8 +37,26 @@ namespace UDiscord.Rocket.Game
         public void Subscribe()
         {
             if (_subscribed) return;
-            ChatManager.onChatted += OnChatted;
-            ChatManager.onServerFormattingMessage += OnServerFormattingMessage;
+
+            UDiscordConfiguration config;
+            if (TryGetConfiguration(out config))
+            {
+                ModerationSettings moderation = config.Moderation;
+                MuteBackendSettings muteBackend = moderation?.MuteBackend;
+                if (moderation != null && moderation.Enabled && muteBackend != null && muteBackend.UsesInternalStore)
+                {
+                    ChatManager.onChatted += OnChatted;
+                    _muteHookSubscribed = true;
+                }
+
+                ChatRelaySettings chatRelay = config.ChatRelay;
+                if (chatRelay != null && chatRelay.GameToDiscordEnabled && chatRelay.RelayGlobalChat)
+                {
+                    ChatManager.onServerFormattingMessage += OnServerFormattingMessage;
+                    _formattingHookSubscribed = true;
+                }
+            }
+
             U.Events.OnPlayerConnected += OnPlayerConnected;
             U.Events.OnPlayerDisconnected += OnPlayerDisconnected;
             _subscribed = true;
@@ -43,8 +65,16 @@ namespace UDiscord.Rocket.Game
         public void Unsubscribe()
         {
             if (!_subscribed) return;
-            ChatManager.onChatted -= OnChatted;
-            ChatManager.onServerFormattingMessage -= OnServerFormattingMessage;
+            if (_muteHookSubscribed)
+            {
+                ChatManager.onChatted -= OnChatted;
+                _muteHookSubscribed = false;
+            }
+            if (_formattingHookSubscribed)
+            {
+                ChatManager.onServerFormattingMessage -= OnServerFormattingMessage;
+                _formattingHookSubscribed = false;
+            }
             U.Events.OnPlayerConnected -= OnPlayerConnected;
             U.Events.OnPlayerDisconnected -= OnPlayerDisconnected;
             _subscribed = false;
@@ -96,17 +126,35 @@ namespace UDiscord.Rocket.Game
 
         private void OnChatted(SteamPlayer steamPlayer, EChatMode mode, ref Color color, ref bool isRich, string text, ref bool isVisible)
         {
-            if (steamPlayer?.playerID == null || string.IsNullOrWhiteSpace(text)) return;
-            UDiscordConfiguration config = _configuration();
-            MuteBackendSettings backend = config?.Moderation?.MuteBackend;
-            if (backend == null || !backend.UsesInternalStore) return;
-
-            string steamId = steamPlayer.playerID.steamID.m_SteamID.ToString();
-            MuteRecord mute;
-            if (_mutes.TryGetActive(steamId, DateTime.UtcNow, out mute))
+            try
             {
-                isVisible = false;
-                SendMuteReminder(steamPlayer, mute, config);
+                if (steamPlayer == null || steamPlayer.playerID == null || string.IsNullOrWhiteSpace(text)) return;
+
+                UDiscordConfiguration config;
+                if (!TryGetConfiguration(out config)) return;
+
+                ModerationSettings moderation = config.Moderation;
+                if (moderation == null || !moderation.Enabled) return;
+
+                MuteBackendSettings backend = moderation.MuteBackend;
+                if (backend == null || !backend.UsesInternalStore) return;
+
+                string steamId = steamPlayer.playerID.steamID.m_SteamID.ToString();
+                MuteRecord mute;
+                if (_mutes.TryGetActive(steamId, DateTime.UtcNow, out mute))
+                {
+                    isVisible = false;
+                    SendMuteReminder(steamPlayer, mute, config);
+                }
+            }
+            catch (Exception exception)
+            {
+                // A moderation integration must never break Unturned's authoritative chat pipeline.
+                if (!_muteHookFailureLogged)
+                {
+                    _muteHookFailureLogged = true;
+                    PluginLog.Exception(exception, "Internal mute chat hook failed. The message was allowed and this error will only be logged once for this runtime.");
+                }
             }
         }
 
@@ -179,6 +227,25 @@ namespace UDiscord.Rocket.Game
             message = message.Replace("{reason}", MessageSanitizer.FromGameToDiscord(mute.Reason, 200));
             UnturnedPlayer target = UnturnedPlayer.FromSteamPlayer(player);
             UnturnedChat.Say(target, message, Color.red);
+        }
+
+        private bool TryGetConfiguration(out UDiscordConfiguration config)
+        {
+            config = null;
+            try
+            {
+                config = _configuration();
+                return config != null;
+            }
+            catch (Exception exception)
+            {
+                if (!_configurationFailureLogged)
+                {
+                    _configurationFailureLogged = true;
+                    PluginLog.Exception(exception, "Unable to read uDiscord configuration from a game hook. The hook action was skipped.");
+                }
+                return false;
+            }
         }
 
         private static Color ParseColor(string value, Color fallback)
