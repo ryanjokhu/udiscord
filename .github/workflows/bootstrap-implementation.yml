@@ -31,7 +31,7 @@ jobs:
           echo "d51bad5404ae115a604b1845545bd2892236330ca36e2cf1de93982022144147  /tmp/udiscord-payload.tar.gz" | sha256sum -c -
           tar -xzf /tmp/udiscord-payload.tar.gz -C .
           rm -rf .github/bootstrap-payload
-          rm -f .github/workflows/bootstrap-implementation.yml
+          rm -f .github/workflows/ci.yml
 
       - name: Commit implementation
         shell: bash
