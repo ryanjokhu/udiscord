@@ -18,30 +18,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Run core tests
-        shell: bash
-        run: |
-          set +e
-          dotnet test tests/uDiscord.Core.Tests/uDiscord.Core.Tests.csproj -c Release --verbosity minimal > test-output.txt 2>&1
-          code=$?
-          cat test-output.txt
-          echo "$code" > test-exit-code.txt
-          exit 0
-      - name: Upload test diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: core-test-diagnostics
-          path: |
-            test-output.txt
-            test-exit-code.txt
-      - name: Reject failed tests
-        shell: bash
-        run: |
-          code="$(cat test-exit-code.txt)"
-          if [ "$code" != "0" ]; then
-            echo "Core tests failed with exit code $code."
-            exit "$code"
-          fi
+        run: dotnet test tests/uDiscord.Core.Tests/uDiscord.Core.Tests.csproj -c Release --verbosity minimal
       - name: Reject release placeholders
         shell: bash
         run: |
