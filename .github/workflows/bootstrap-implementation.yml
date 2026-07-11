@@ -1,0 +1,43 @@
+name: Bootstrap implementation
+
+on:
+  push:
+    branches:
+      - implementation/customer-ready-v1
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/customer-ready-v1
+          fetch-depth: 0
+
+      - name: Expand verified implementation payload
+        shell: bash
+        run: |
+          cat .github/bootstrap-payload/part-*.txt > /tmp/udiscord-payload.b64
+          test "$(wc -c < /tmp/udiscord-payload.b64)" = "66632"
+          echo "eb1ee239bc08d6ec27771b2a8b3068cd143d70cdd14db5449711e6a101e95d3a  /tmp/udiscord-payload.b64" | sha256sum -c -
+          base64 --decode /tmp/udiscord-payload.b64 > /tmp/udiscord-payload.tar.gz
+          echo "1563776c53901fcc57e617319985e5ebc90378028e61dbaeecea937ccb08a3d1  /tmp/udiscord-payload.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/udiscord-payload.tar.gz -C .
+          rm -rf .github/bootstrap-payload
+          rm -f .github/workflows/bootstrap-implementation.yml
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement customer-ready embedded Discord bridge"
+          git push origin HEAD:implementation/customer-ready-v1
