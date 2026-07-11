@@ -76,6 +76,7 @@ namespace UDiscord.Rocket.Configuration
                 result.AddError("Moderation.MaximumTemporaryBanDays must be between 1 and 3650.");
             if (configuration.Moderation.MaximumTemporaryMuteDays < 1 || configuration.Moderation.MaximumTemporaryMuteDays > 3650)
                 result.AddError("Moderation.MaximumTemporaryMuteDays must be between 1 and 3650.");
+            ValidateMuteBackend(configuration.Moderation.MuteBackend, result);
 
             if (configuration.RateLimits.DiscordMessagesPerWindow < 1 || configuration.RateLimits.DiscordMessageWindowSeconds < 1)
                 result.AddError("Discord message rate limit must be positive.");
@@ -102,6 +103,41 @@ namespace UDiscord.Rocket.Configuration
             return result;
         }
 
+        private static void ValidateMuteBackend(MuteBackendSettings settings, ValidationResult result)
+        {
+            if (settings == null)
+            {
+                result.AddError("Moderation.MuteBackend section is missing.");
+                return;
+            }
+
+            if (!settings.UsesCommands && !settings.UsesInternalStore)
+            {
+                result.AddError("Moderation.MuteBackend.Mode must be either Command or Internal.");
+                return;
+            }
+
+            if (!settings.UsesCommands) return;
+            ValidateCommandTemplate(settings.MuteCommand, "Moderation.MuteBackend.MuteCommand", false, result);
+            ValidateCommandTemplate(settings.TemporaryMuteCommand, "Moderation.MuteBackend.TemporaryMuteCommand", true, result);
+            ValidateCommandTemplate(settings.UnmuteCommand, "Moderation.MuteBackend.UnmuteCommand", false, result);
+        }
+
+        private static void ValidateCommandTemplate(string template, string field, bool requiresDuration, ValidationResult result)
+        {
+            if (string.IsNullOrWhiteSpace(template))
+            {
+                result.AddError(field + " is required when command mute mode is enabled.");
+                return;
+            }
+
+            if (template.IndexOf('\r') >= 0 || template.IndexOf('\n') >= 0)
+                result.AddError(field + " cannot contain line breaks.");
+            if (!template.Contains("{steamid}") && !template.Contains("{player}"))
+                result.AddError(field + " must contain {steamid} or {player}.");
+            if (requiresDuration && !template.Contains("{duration}"))
+                result.AddError(field + " must contain {duration}.");
+        }
 
         private static void ValidateFileName(string value, string field, ValidationResult result)
         {
@@ -133,9 +169,7 @@ namespace UDiscord.Rocket.Configuration
 
             IEnumerable<ulong> duplicates = all.GroupBy(x => x).Where(group => group.Count() > 1).Select(group => group.Key);
             foreach (ulong roleId in duplicates)
-            {
                 result.AddWarning("Discord role ID " + roleId + " appears in more than one permission tier; the highest tier wins.");
-            }
         }
 
         private static void AddRoles(IEnumerable<ulong> roles, string name, ICollection<ulong> all, ValidationResult result)
