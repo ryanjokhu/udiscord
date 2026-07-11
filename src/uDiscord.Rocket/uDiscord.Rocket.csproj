@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>uDiscord</AssemblyName>
+    <RootNamespace>UDiscord.Rocket</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\uDiscord.Core\uDiscord.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\lib\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Rocket.API">
+      <HintPath>..\..\lib\Rocket.API.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Rocket.Core">
+      <HintPath>..\..\lib\Rocket.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Rocket.Unturned">
+      <HintPath>..\..\lib\Rocket.Unturned.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SDG.NetTransport">
+      <HintPath>..\..\lib\SDG.NetTransport.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="com.rlabrecque.steamworks.net" Condition="Exists('..\..\lib\com.rlabrecque.steamworks.net.dll')">
+      <HintPath>..\..\lib\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Steamworks.NET" Condition="!Exists('..\..\lib\com.rlabrecque.steamworks.net.dll') And Exists('..\..\lib\Steamworks.NET.dll')">
+      <HintPath>..\..\lib\Steamworks.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>..\..\lib\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\lib\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\..\lib\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Net.WebSockets" />
+    <Reference Include="System.Net.WebSockets.Client" />
+  </ItemGroup>
+</Project>
