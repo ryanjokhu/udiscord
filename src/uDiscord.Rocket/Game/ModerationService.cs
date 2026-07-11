@@ -158,7 +158,7 @@ namespace UDiscord.Rocket.Game
             foreach (SteamPlayer client in Provider.clients)
             {
                 if (client?.player == null) continue;
-                Rocket.Unturned.Player.UnturnedPlayer target = Rocket.Unturned.Player.UnturnedPlayer.FromSteamPlayer(client);
+                global::Rocket.Unturned.Player.UnturnedPlayer target = global::Rocket.Unturned.Player.UnturnedPlayer.FromSteamPlayer(client);
                 UnturnedChat.Say(target, message, color, richText);
             }
 
