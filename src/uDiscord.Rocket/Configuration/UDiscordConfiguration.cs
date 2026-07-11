@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Rocket.API;
+using SDG.Unturned;
 
 namespace UDiscord.Rocket.Configuration
 {
@@ -12,6 +13,8 @@ namespace UDiscord.Rocket.Configuration
         public bool Debug { get; set; }
         public DiscordSettings Discord { get; set; }
         public ChatRelaySettings ChatRelay { get; set; }
+        public DiscordOutputRoutingSettings Outputs { get; set; }
+        public CommandLoggingSettings CommandLogging { get; set; }
         public ModerationSettings Moderation { get; set; }
         public PermissionSettings Permissions { get; set; }
         public RateLimitSettings RateLimits { get; set; }
@@ -25,6 +28,8 @@ namespace UDiscord.Rocket.Configuration
             Debug = false;
             Discord = DiscordSettings.CreateDefault();
             ChatRelay = ChatRelaySettings.CreateDefault();
+            Outputs = DiscordOutputRoutingSettings.CreateDefault();
+            CommandLogging = CommandLoggingSettings.CreateDefault();
             Moderation = ModerationSettings.CreateDefault();
             Permissions = PermissionSettings.CreateDefault();
             RateLimits = RateLimitSettings.CreateDefault();
@@ -50,8 +55,7 @@ namespace UDiscord.Rocket.Configuration
         public string BotToken { get; set; }
         public string BotTokenEnvironmentVariable { get; set; }
         public ulong GuildId { get; set; }
-        public ulong ChatChannelId { get; set; }
-        public ulong ModerationLogChannelId { get; set; }
+        public ulong DiscordToGameChannelId { get; set; }
         public bool RegisterGuildCommandsOnStartup { get; set; }
         public bool IgnoreBotMessages { get; set; }
         public bool IgnoreWebhookMessages { get; set; }
@@ -65,6 +69,13 @@ namespace UDiscord.Rocket.Configuration
         [XmlArrayItem("ChannelId")]
         public List<ulong> CommandChannelIds { get; set; }
 
+        // Legacy v1.x fields. They are accepted during deserialization and migrated in memory,
+        // but are not written into newly generated configurations.
+        public ulong ChatChannelId { get; set; }
+        public ulong ModerationLogChannelId { get; set; }
+        public bool ShouldSerializeChatChannelId() { return false; }
+        public bool ShouldSerializeModerationLogChannelId() { return false; }
+
         public static DiscordSettings CreateDefault()
         {
             return new DiscordSettings
@@ -72,8 +83,7 @@ namespace UDiscord.Rocket.Configuration
                 BotToken = string.Empty,
                 BotTokenEnvironmentVariable = "UDISCORD_BOT_TOKEN",
                 GuildId = 0,
-                ChatChannelId = 0,
-                ModerationLogChannelId = 0,
+                DiscordToGameChannelId = 0,
                 RegisterGuildCommandsOnStartup = true,
                 IgnoreBotMessages = true,
                 IgnoreWebhookMessages = true,
@@ -83,52 +93,203 @@ namespace UDiscord.Rocket.Configuration
                 ReconnectMinimumSeconds = 2,
                 ReconnectMaximumSeconds = 60,
                 ActivityTemplate = "{players}/{maxplayers} players",
-                CommandChannelIds = new List<ulong>()
+                CommandChannelIds = new List<ulong>(),
+                ChatChannelId = 0,
+                ModerationLogChannelId = 0
             };
         }
     }
 
     public sealed class ChatRelaySettings
     {
-        public bool GameToDiscordEnabled { get; set; }
         public bool DiscordToGameEnabled { get; set; }
-        public bool RelayGlobalChat { get; set; }
-        public bool RelayJoinMessages { get; set; }
-        public bool RelayLeaveMessages { get; set; }
-        public bool RelayServerOnlineMessage { get; set; }
-        public bool RelayServerOfflineMessage { get; set; }
         public bool RelayAttachments { get; set; }
         public bool RelayAttachmentUrls { get; set; }
         public int MaximumGameMessageLength { get; set; }
         public int MaximumDiscordMessageLength { get; set; }
         public string DiscordToGameFormat { get; set; }
+        public string GameChatColorHex { get; set; }
+        public bool UseRichTextInGame { get; set; }
+
+        // Legacy v1.x game-to-Discord routing fields.
+        public bool GameToDiscordEnabled { get; set; }
+        public bool RelayGlobalChat { get; set; }
+        public bool RelayJoinMessages { get; set; }
+        public bool RelayLeaveMessages { get; set; }
+        public bool RelayServerOnlineMessage { get; set; }
+        public bool RelayServerOfflineMessage { get; set; }
         public string GameToDiscordFormat { get; set; }
         public string JoinFormat { get; set; }
         public string LeaveFormat { get; set; }
-        public string GameChatColorHex { get; set; }
-        public bool UseRichTextInGame { get; set; }
+
+        public bool ShouldSerializeGameToDiscordEnabled() { return false; }
+        public bool ShouldSerializeRelayGlobalChat() { return false; }
+        public bool ShouldSerializeRelayJoinMessages() { return false; }
+        public bool ShouldSerializeRelayLeaveMessages() { return false; }
+        public bool ShouldSerializeRelayServerOnlineMessage() { return false; }
+        public bool ShouldSerializeRelayServerOfflineMessage() { return false; }
+        public bool ShouldSerializeGameToDiscordFormat() { return false; }
+        public bool ShouldSerializeJoinFormat() { return false; }
+        public bool ShouldSerializeLeaveFormat() { return false; }
 
         public static ChatRelaySettings CreateDefault()
         {
             return new ChatRelaySettings
             {
-                GameToDiscordEnabled = true,
                 DiscordToGameEnabled = true,
-                RelayGlobalChat = true,
-                RelayJoinMessages = true,
-                RelayLeaveMessages = true,
-                RelayServerOnlineMessage = true,
-                RelayServerOfflineMessage = true,
                 RelayAttachments = true,
                 RelayAttachmentUrls = false,
                 MaximumGameMessageLength = 240,
                 MaximumDiscordMessageLength = 1800,
                 DiscordToGameFormat = "<color=#5865F2>[Discord]</color> <color=#D3D3D3>{author}: {message}</color>",
+                GameChatColorHex = "#D3D3D3",
+                UseRichTextInGame = true,
+                GameToDiscordEnabled = true,
+                RelayGlobalChat = true,
+                RelayJoinMessages = true,
+                RelayLeaveMessages = true,
+                RelayServerOnlineMessage = true,
+                RelayServerOfflineMessage = true,
                 GameToDiscordFormat = "[Global] {player}: {message}",
                 JoinFormat = "{player} joined the server.",
-                LeaveFormat = "{player} left the server.",
-                GameChatColorHex = "#D3D3D3",
-                UseRichTextInGame = true
+                LeaveFormat = "{player} left the server."
+            };
+        }
+    }
+
+    public sealed class DiscordOutputRoutingSettings
+    {
+        public DiscordFormattedOutputSettings GlobalChat { get; set; }
+        public DiscordFormattedOutputSettings LocalChat { get; set; }
+        public DiscordFormattedOutputSettings GroupChat { get; set; }
+        public DiscordFormattedOutputSettings PlayerJoin { get; set; }
+        public DiscordFormattedOutputSettings PlayerLeave { get; set; }
+        public DiscordFormattedOutputSettings ServerOnline { get; set; }
+        public DiscordFormattedOutputSettings ServerOffline { get; set; }
+        public DiscordFormattedOutputSettings TestMessages { get; set; }
+        public DiscordFormattedOutputSettings CommandLogs { get; set; }
+        public DiscordChannelOutputSettings ModerationLogs { get; set; }
+
+        public DiscordFormattedOutputSettings GetChatOutput(EChatMode mode)
+        {
+            switch (mode)
+            {
+                case EChatMode.GLOBAL:
+                    return GlobalChat;
+                case EChatMode.LOCAL:
+                    return LocalChat;
+                case EChatMode.GROUP:
+                    return GroupChat;
+                default:
+                    return null;
+            }
+        }
+
+        public bool HasAnyPlayerChatOutputEnabled()
+        {
+            return IsEnabled(GlobalChat) || IsEnabled(LocalChat) || IsEnabled(GroupChat);
+        }
+
+        public bool HasAnyOutputEnabled()
+        {
+            return HasAnyPlayerChatOutputEnabled() ||
+                   IsEnabled(PlayerJoin) ||
+                   IsEnabled(PlayerLeave) ||
+                   IsEnabled(ServerOnline) ||
+                   IsEnabled(ServerOffline) ||
+                   IsEnabled(TestMessages) ||
+                   IsEnabled(CommandLogs) ||
+                   (ModerationLogs != null && ModerationLogs.Enabled);
+        }
+
+        public static DiscordOutputRoutingSettings CreateDefault()
+        {
+            return new DiscordOutputRoutingSettings
+            {
+                GlobalChat = DiscordFormattedOutputSettings.Create(true, 0, "[Global] {player}: {message}"),
+                LocalChat = DiscordFormattedOutputSettings.Create(false, 0, "[Local] {player}: {message}"),
+                GroupChat = DiscordFormattedOutputSettings.Create(false, 0, "[Group] {player}: {message}"),
+                PlayerJoin = DiscordFormattedOutputSettings.Create(true, 0, "{player} joined the server."),
+                PlayerLeave = DiscordFormattedOutputSettings.Create(true, 0, "{player} left the server."),
+                ServerOnline = DiscordFormattedOutputSettings.Create(true, 0, "{server} is online."),
+                ServerOffline = DiscordFormattedOutputSettings.Create(true, 0, "{server} is shutting down."),
+                TestMessages = DiscordFormattedOutputSettings.Create(true, 0, "uDiscord test: the embedded bot can send messages from the Unturned server."),
+                CommandLogs = DiscordFormattedOutputSettings.Create(false, 0, "[Command] {player} ({steamid}) dispatched: {command}"),
+                ModerationLogs = DiscordChannelOutputSettings.Create(true, 0)
+            };
+        }
+
+        private static bool IsEnabled(DiscordChannelOutputSettings output)
+        {
+            return output != null && output.Enabled;
+        }
+    }
+
+    public class DiscordChannelOutputSettings
+    {
+        public bool Enabled { get; set; }
+        public ulong ChannelId { get; set; }
+
+        public static DiscordChannelOutputSettings Create(bool enabled, ulong channelId)
+        {
+            return new DiscordChannelOutputSettings
+            {
+                Enabled = enabled,
+                ChannelId = channelId
+            };
+        }
+    }
+
+    public sealed class DiscordFormattedOutputSettings : DiscordChannelOutputSettings
+    {
+        public string Format { get; set; }
+
+        public static DiscordFormattedOutputSettings Create(bool enabled, ulong channelId, string format)
+        {
+            return new DiscordFormattedOutputSettings
+            {
+                Enabled = enabled,
+                ChannelId = channelId,
+                Format = format
+            };
+        }
+    }
+
+    public sealed class CommandLoggingSettings
+    {
+        public bool IncludeArguments { get; set; }
+        public bool LogConsoleCommands { get; set; }
+
+        [XmlArrayItem("Command")]
+        public List<string> IgnoredCommands { get; set; }
+
+        [XmlArrayItem("Command")]
+        public List<string> RedactedCommands { get; set; }
+
+        // Legacy v1.1 fields. Routing now lives at Outputs.CommandLogs.
+        public bool Enabled { get; set; }
+        public ulong ChannelId { get; set; }
+        public bool ShouldSerializeEnabled() { return false; }
+        public bool ShouldSerializeChannelId() { return false; }
+
+        public static CommandLoggingSettings CreateDefault()
+        {
+            return new CommandLoggingSettings
+            {
+                IncludeArguments = true,
+                LogConsoleCommands = false,
+                IgnoredCommands = new List<string>(),
+                RedactedCommands = new List<string>
+                {
+                    "login",
+                    "register",
+                    "password",
+                    "changepassword",
+                    "auth",
+                    "2fa"
+                },
+                Enabled = false,
+                ChannelId = 0
             };
         }
     }

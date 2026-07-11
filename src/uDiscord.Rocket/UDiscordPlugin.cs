@@ -42,7 +42,7 @@ namespace UDiscord.Rocket
         public bool RuntimeReady => _runtimeReady;
         public BotConnectionState DiscordState => _discord == null ? BotConnectionState.Disabled : _discord.State;
         public string Version => Assembly.GetExecutingAssembly().GetName().Version == null
-            ? "1.0.0"
+            ? "1.2.0"
             : Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
 
         public override TranslationList DefaultTranslations => new TranslationList
@@ -53,7 +53,7 @@ namespace UDiscord.Rocket
             { "ReloadInvalid", "uDiscord configuration was not applied: {0}" },
             { "ReconnectRequested", "uDiscord reconnect requested." },
             { "TestQueued", "uDiscord test message queued for Discord." },
-            { "TestFailed", "uDiscord could not queue the test message. Check that chat relay is configured and the bot is running." },
+            { "TestFailed", "uDiscord could not queue the test message. Check Outputs.TestMessages and the bot connection." },
             { "NotReady", "uDiscord runtime is not ready. Check the server console for configuration errors." },
             { "Usage", "Usage: /udiscord <status|reload|reconnect|test>" }
         };
@@ -132,7 +132,7 @@ namespace UDiscord.Rocket
         {
             DiscordBotHost host = _discord;
             if (!_runtimeReady || host == null) return false;
-            return host.TryQueueChatMessage("uDiscord test: the embedded bot can send messages from the Unturned server.");
+            return host.TryQueueTestMessage();
         }
 
         public bool BeginReload(out string response)
@@ -295,7 +295,8 @@ namespace UDiscord.Rocket
                 _muteExpiryTimer = new Timer(PurgeExpiredMutes, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
                 _runtimeReady = true;
                 PluginLog.Info(
-                    "Loaded v" + Version + ". Chat relay=" + (config.ChatRelay.GameToDiscordEnabled || config.ChatRelay.DiscordToGameEnabled) +
+                    "Loaded v" + Version + ". Discord outputs=" + (config.Outputs != null && config.Outputs.HasAnyOutputEnabled()) +
+                    ", discord_to_game=" + config.ChatRelay.DiscordToGameEnabled +
                     ", moderation=" + config.Moderation.Enabled +
                     ", active mutes=" + _mutes.Count +
                     ", next case=#" + _cases.PeekNextCaseId() + ".");
