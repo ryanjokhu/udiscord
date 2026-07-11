@@ -51,8 +51,8 @@ namespace UDiscord.Core.Security
             }
 
             return input
-                .Replace("@everyone", "@\u200beveryone")
-                .Replace("@here", "@\u200bhere");
+                .Replace("@everyone", "[everyone]")
+                .Replace("@here", "[here]");
         }
 
         public static string Truncate(string input, int maximumLength)
