@@ -26,9 +26,9 @@ jobs:
         run: |
           cat .github/bootstrap-payload/part-*.txt > /tmp/udiscord-payload.b64
           test "$(wc -c < /tmp/udiscord-payload.b64)" = "66632"
-          echo "eb1ee239bc08d6ec27771b2a8b3068cd143d70cdd14db5449711e6a101e95d3a  /tmp/udiscord-payload.b64" | sha256sum -c -
+          echo "46efbb2c85871e32ca5c2d5204cea90f7b7b154f790ada4f2fd5a033d5ae4ee1  /tmp/udiscord-payload.b64" | sha256sum -c -
           base64 --decode /tmp/udiscord-payload.b64 > /tmp/udiscord-payload.tar.gz
-          echo "1563776c53901fcc57e617319985e5ebc90378028e61dbaeecea937ccb08a3d1  /tmp/udiscord-payload.tar.gz" | sha256sum -c -
+          echo "d51bad5404ae115a604b1845545bd2892236330ca36e2cf1de93982022144147  /tmp/udiscord-payload.tar.gz" | sha256sum -c -
           tar -xzf /tmp/udiscord-payload.tar.gz -C .
           rm -rf .github/bootstrap-payload
           rm -f .github/workflows/bootstrap-implementation.yml
