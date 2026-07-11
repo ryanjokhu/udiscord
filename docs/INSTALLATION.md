@@ -52,9 +52,9 @@ Set:
 
 - `Discord.BotToken`, or preferably environment variable `UDISCORD_BOT_TOKEN`
 - `Discord.GuildId`
-- `Discord.ChatChannelId`
-- `Discord.ModerationLogChannelId`
-- at least one role under `Permissions`
+- `Discord.DiscordToGameChannelId` for Discord → Unturned messages
+- each enabled route under `Outputs` with its own `ChannelId`
+- at least one role under `Permissions` when moderation is enabled
 
 Restart the server or run `/udiscord reload` after editing a valid configuration.
 
@@ -64,6 +64,7 @@ Restart the server or run `/udiscord reload` after editing a valid configuration
 2. Run `/udiscord test`.
 3. Confirm the bot is online and the test appears in Discord.
 4. Send a Discord message in the configured chat channel.
-5. Send an in-game global message.
-6. Run `/udiscord status` in Discord.
-7. Test moderation on a controlled account before production use.
+5. Send global, local, and group messages for every enabled output route.
+6. Confirm each mode reaches its configured Discord channel.
+7. Run `/udiscord status` in Discord.
+8. Test command logging and moderation on a controlled account before production use.
