@@ -71,7 +71,7 @@ namespace UDiscord.Rocket.Commands
                 return;
             }
 
-            Logger.Log("[uDiscord] " + message);
+            global::Rocket.Core.Logging.Logger.Log("[uDiscord] " + message);
         }
     }
 }
