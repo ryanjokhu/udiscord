@@ -98,16 +98,16 @@ namespace UDiscord.Rocket.Game
         {
             if (steamPlayer?.playerID == null || string.IsNullOrWhiteSpace(text)) return;
             UDiscordConfiguration config = _configuration();
-            string steamId = steamPlayer.playerID.steamID.m_SteamID.ToString();
+            MuteBackendSettings backend = config?.Moderation?.MuteBackend;
+            if (backend == null || !backend.UsesInternalStore) return;
 
+            string steamId = steamPlayer.playerID.steamID.m_SteamID.ToString();
             MuteRecord mute;
             if (_mutes.TryGetActive(steamId, DateTime.UtcNow, out mute))
             {
                 isVisible = false;
                 SendMuteReminder(steamPlayer, mute, config);
-                return;
             }
-
         }
 
         private void OnServerFormattingMessage(SteamPlayer steamPlayer, EChatMode mode, ref string text)
