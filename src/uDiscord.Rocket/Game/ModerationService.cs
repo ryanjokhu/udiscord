@@ -6,6 +6,7 @@ using Steamworks;
 using UnityEngine;
 using UDiscord.Core.Models;
 using UDiscord.Core.Utility;
+using UDiscord.Rocket.Configuration;
 using UDiscord.Rocket.Persistence;
 
 namespace UDiscord.Rocket.Game
@@ -14,13 +15,22 @@ namespace UDiscord.Rocket.Game
     {
         private readonly PlayerResolver _players;
         private readonly MuteStore _mutes;
+        private readonly CommandMuteBackend _commandMutes;
 
-        public int ActiveMuteCount => _mutes.Count;
+        public int ActiveMuteCount
+        {
+            get
+            {
+                MuteBackendSettings backend = GetMuteBackend();
+                return backend != null && backend.UsesInternalStore ? _mutes.Count : 0;
+            }
+        }
 
         public ModerationService(PlayerResolver players, MuteStore mutes)
         {
             _players = players ?? throw new ArgumentNullException(nameof(players));
             _mutes = mutes ?? throw new ArgumentNullException(nameof(mutes));
+            _commandMutes = new CommandMuteBackend(_players);
         }
 
         public ModerationExecution Kick(string target, string reason)
@@ -127,6 +137,43 @@ namespace UDiscord.Rocket.Game
 
         public ModerationExecution Mute(string target, string reason, TimeSpan? duration, string actorDiscordId, string actorDisplayName, string operationId)
         {
+            MuteBackendSettings backend = GetMuteBackend();
+            if (backend != null && backend.UsesCommands)
+                return _commandMutes.Mute(target, reason, duration, backend);
+
+            return MuteInternally(target, reason, duration, actorDiscordId, actorDisplayName, operationId);
+        }
+
+        public ModerationExecution Unmute(string target)
+        {
+            MuteBackendSettings backend = GetMuteBackend();
+            if (backend != null && backend.UsesCommands)
+                return _commandMutes.Unmute(target, backend);
+
+            return UnmuteInternally(target);
+        }
+
+        public ModerationExecution Announce(string message, Color color, bool richText)
+        {
+            foreach (SteamPlayer client in Provider.clients)
+            {
+                if (client?.player == null) continue;
+                Rocket.Unturned.Player.UnturnedPlayer target = Rocket.Unturned.Player.UnturnedPlayer.FromSteamPlayer(client);
+                UnturnedChat.Say(target, message, color, richText);
+            }
+
+            return new ModerationExecution
+            {
+                Success = true,
+                Action = ModerationActionType.Announcement,
+                TargetSteamId = string.Empty,
+                TargetDisplayName = "Server",
+                Message = "Announcement sent to " + Provider.clients.Count + " connected players."
+            };
+        }
+
+        private ModerationExecution MuteInternally(string target, string reason, TimeSpan? duration, string actorDiscordId, string actorDisplayName, string operationId)
+        {
             ModerationActionType action = duration.HasValue ? ModerationActionType.TemporaryMute : ModerationActionType.Mute;
             PlayerResolution resolution = _players.ResolveOnline(target);
             if (resolution.Status == PlayerResolutionStatus.Ambiguous)
@@ -174,7 +221,7 @@ namespace UDiscord.Rocket.Game
             };
         }
 
-        public ModerationExecution Unmute(string target)
+        private ModerationExecution UnmuteInternally(string target)
         {
             PlayerResolution resolution = _players.ResolveOnline(target);
             if (resolution.Status == PlayerResolutionStatus.Ambiguous)
@@ -210,23 +257,10 @@ namespace UDiscord.Rocket.Game
             };
         }
 
-        public ModerationExecution Announce(string message, Color color, bool richText)
+        private static MuteBackendSettings GetMuteBackend()
         {
-            foreach (SteamPlayer client in Provider.clients)
-            {
-                if (client?.player == null) continue;
-                Rocket.Unturned.Player.UnturnedPlayer target = Rocket.Unturned.Player.UnturnedPlayer.FromSteamPlayer(client);
-                UnturnedChat.Say(target, message, color, richText);
-            }
-
-            return new ModerationExecution
-            {
-                Success = true,
-                Action = ModerationActionType.Announcement,
-                TargetSteamId = string.Empty,
-                TargetDisplayName = "Server",
-                Message = "Announcement sent to " + Provider.clients.Count + " connected players."
-            };
+            UDiscordConfiguration configuration = UDiscordPlugin.Instance?.Configuration?.Instance;
+            return configuration?.Moderation?.MuteBackend;
         }
     }
 }
