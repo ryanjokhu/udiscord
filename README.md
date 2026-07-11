@@ -11,7 +11,8 @@ A server owner creates a Discord application and bot token, installs `uDiscord.d
 - Guild-scoped `/udiscord` slash commands registered automatically
 - Server status, online-player list, and staff announcements
 - Native Unturned kick, permanent ban, temporary ban, and unban
-- Persistent permanent/temporary mute and unmute
+- Configurable mute, temporary mute, and unmute command templates that delegate to the server's existing moderation plugin by default
+- Optional built-in persistent mute backend for servers without existing mute infrastructure
 - Append-only moderation case journal
 - Discord role-based viewer, moderator, and administrator tiers
 - Player autocomplete using durable Steam64 values
@@ -48,7 +49,7 @@ See [Installation](docs/INSTALLATION.md). The essential flow is:
 4. Create a Discord application and bot.
 5. Enable **Message Content Intent**.
 6. Invite the bot with `bot` and `applications.commands` scopes.
-7. Configure the token, guild ID, channel IDs, and role IDs.
+7. Configure the token, guild ID, channel IDs, role IDs, and mute command templates.
 8. Restart the Unturned server.
 
 ## Build
