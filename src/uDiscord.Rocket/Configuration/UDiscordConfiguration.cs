@@ -146,6 +146,7 @@ namespace UDiscord.Rocket.Configuration
         public bool AllowDiscordAdministratorBypass { get; set; }
         public bool LogDeniedActions { get; set; }
         public int MuteReminderCooldownSeconds { get; set; }
+        public MuteBackendSettings MuteBackend { get; set; }
 
         public static ModerationSettings CreateDefault()
         {
@@ -161,7 +162,32 @@ namespace UDiscord.Rocket.Configuration
                 AllowOfflineBansBySteamId = true,
                 AllowDiscordAdministratorBypass = false,
                 LogDeniedActions = true,
-                MuteReminderCooldownSeconds = 5
+                MuteReminderCooldownSeconds = 5,
+                MuteBackend = MuteBackendSettings.CreateDefault()
+            };
+        }
+    }
+
+    public sealed class MuteBackendSettings
+    {
+        public string Mode { get; set; }
+        public string MuteCommand { get; set; }
+        public string TemporaryMuteCommand { get; set; }
+        public string UnmuteCommand { get; set; }
+        public bool AllowOfflineTargets { get; set; }
+
+        public bool UsesInternalStore => string.Equals(Mode, "Internal", StringComparison.OrdinalIgnoreCase);
+        public bool UsesCommands => string.Equals(Mode, "Command", StringComparison.OrdinalIgnoreCase);
+
+        public static MuteBackendSettings CreateDefault()
+        {
+            return new MuteBackendSettings
+            {
+                Mode = "Command",
+                MuteCommand = "mute {steamid} {reason}",
+                TemporaryMuteCommand = "tempmute {steamid} {duration} {reason}",
+                UnmuteCommand = "unmute {steamid}",
+                AllowOfflineTargets = true
             };
         }
     }
